@@ -35,8 +35,8 @@
   /* ---- app shell: sidebar + scrolling main + fixed player ---- */
   #shell{display:grid;grid-template-columns:var(--side) 1fr;gap:8px;
     height:100svh;padding:8px 8px calc(var(--player-h) + 8px);}
-  #side{background:var(--panel);border-radius:12px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
-  #main{background:linear-gradient(180deg,var(--panel-2),var(--panel) 260px);
+  #side{border-radius:12px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+  #main{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(10,10,12,.55) 300px);backdrop-filter:blur(22px) saturate(150%);-webkit-backdrop-filter:blur(22px) saturate(150%);
     border-radius:12px;position:relative;min-width:0;overflow-y:auto;overflow-x:hidden;scroll-behavior:smooth}
   #topbar{position:sticky;top:0;z-index:20;height:var(--top-h);display:flex;align-items:center;gap:12px;
     padding:0 20px;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
@@ -99,14 +99,16 @@
 
   #player{position:fixed;inset:auto 0 0 0;height:var(--player-h);z-index:60;
     display:grid;grid-template-columns:1fr minmax(0,42%) 1fr;align-items:center;gap:16px;
-    padding:0 16px;background:var(--bg);border-top:1px solid var(--line)}
+    padding:0 16px;border-top:1px solid rgba(255,255,255,.1);
+    background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03));
+    backdrop-filter:blur(34px) saturate(200%) brightness(1.12);-webkit-backdrop-filter:blur(34px) saturate(200%) brightness(1.12)}
   @media (max-width:900px){
     #player{grid-template-columns:1fr;gap:6px;padding:10px 12px;align-content:center}
     #p-right{justify-content:center}
   }
 
   #queue{position:fixed;top:8px;bottom:calc(var(--player-h) + 8px);right:8px;width:min(94vw,340px);z-index:65;
-    background:var(--panel);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;
+    border-radius:12px;display:flex;flex-direction:column;overflow:hidden;
     transform:translateX(calc(100% + 16px));transition:transform .34s cubic-bezier(.2,.9,.25,1)}
   #queue.open{transform:none;box-shadow:0 24px 70px rgba(0,0,0,.7)}
 
@@ -137,6 +139,82 @@
   #slash.go .blade{animation:slash .62s cubic-bezier(.5,0,.2,1) forwards}
   @keyframes slash{from{transform:rotate(-14deg) translateX(-100%)}to{transform:rotate(-14deg) translateX(100%)}}
 
+  /* ---------- ambient wash, sampled from the current cover ----------
+     Frosted glass only reads as glass when there is colour behind it to
+     refract, so the artwork drives a slow-moving backdrop. */
+  #amb{position:fixed;inset:-25vmax;z-index:-2;pointer-events:none;
+    background:
+      radial-gradient(38vmax 38vmax at 22% 18%, var(--amb1,#3a2f5a), transparent 66%),
+      radial-gradient(34vmax 34vmax at 78% 72%, var(--amb2,#123b4d), transparent 68%),
+      radial-gradient(30vmax 30vmax at 60% 30%, var(--amb3,#4d1f2a), transparent 70%);
+    filter:blur(32px) saturate(150%);opacity:.55;
+    transition:background 1.4s ease, opacity .8s ease;animation:ambdrift 34s ease-in-out infinite}
+  @keyframes ambdrift{0%,100%{transform:scale(1) translate3d(0,0,0)}50%{transform:scale(1.1) translate3d(2vmax,-2vmax,0)}}
+
+  /* ---------- frosted glass ---------- */
+  .glass{position:relative;
+    background:linear-gradient(150deg,rgba(255,255,255,.13),rgba(255,255,255,.05) 44%,rgba(255,255,255,.02));
+    backdrop-filter:blur(34px) saturate(200%) brightness(1.14);
+    -webkit-backdrop-filter:blur(34px) saturate(200%) brightness(1.14);
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 14px 46px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(255,255,255,.05)}
+  .glass::after{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,0) 42%)}
+
+  /* ---------- press feedback on every control ---------- */
+  button,.navi,.plitem,.chip,label[for]{-webkit-tap-highlight-color:transparent}
+  button:active,.navi:active,.plitem:active,.chip:active{transform:scale(.955)}
+  button,.navi,.plitem,.chip{transition:transform .13s cubic-bezier(.2,.8,.3,1),background .18s,color .18s,opacity .18s}
+  .pressable{position:relative;overflow:hidden}
+  .ink{position:absolute;border-radius:50%;transform:translate(-50%,-50%) scale(0);
+    background:radial-gradient(circle,rgba(255,255,255,.55),rgba(255,255,255,0) 70%);
+    pointer-events:none;animation:inkgo .55s ease-out forwards}
+  @keyframes inkgo{to{transform:translate(-50%,-50%) scale(1);opacity:0}}
+
+  /* ---------- skeleton loaders ---------- */
+  .sk{position:relative;overflow:hidden;background:rgba(255,255,255,.07);border-radius:6px}
+  .sk::after{content:'';position:absolute;inset:0;transform:translateX(-100%);
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.14),transparent);
+    animation:shimmer 1.25s infinite}
+  @keyframes shimmer{100%{transform:translateX(100%)}}
+
+  /* ---------- track skip: art slides the way you travelled ---------- */
+  .skip-l{animation:skipL .42s cubic-bezier(.2,.85,.3,1) both}
+  .skip-r{animation:skipR .42s cubic-bezier(.2,.85,.3,1) both}
+  @keyframes skipL{0%{transform:translateX(38%) scale(.9);opacity:0;filter:blur(5px)}100%{transform:none;opacity:1}}
+  @keyframes skipR{0%{transform:translateX(-38%) scale(.9);opacity:0;filter:blur(5px)}100%{transform:none;opacity:1}}
+
+  /* ---------- click wheel device ---------- */
+  #wheelview{position:fixed;inset:0;z-index:85;display:grid;place-items:center;padding:16px;
+    opacity:0;visibility:hidden;transition:opacity .42s ease,visibility .42s}
+  #wheelview.on{opacity:1;visibility:visible}
+  #wheelview .backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(26px);-webkit-backdrop-filter:blur(26px)}
+  .pod{position:relative;width:min(92vw,330px);border-radius:26px;padding:16px 16px 22px;
+    background:linear-gradient(168deg,#FDFDFD,#E4E6EA 42%,#C9CCD2);
+    box-shadow:0 30px 80px rgba(0,0,0,.65),inset 0 1px 0 #fff,inset 0 -2px 6px rgba(0,0,0,.18);
+    transform:translateY(18px) scale(.96);transition:transform .5s cubic-bezier(.2,.9,.25,1)}
+  #wheelview.on .pod{transform:none}
+  .pod.dark{background:linear-gradient(168deg,#4A4C52,#26282D 44%,#141518);box-shadow:0 30px 80px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.22)}
+  .pod-screen{border-radius:6px;overflow:hidden;background:#0B0C0E;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.5),inset 0 2px 10px rgba(0,0,0,.7)}
+  .wheel{position:relative;width:220px;height:220px;margin:22px auto 0;border-radius:50%;
+    background:radial-gradient(circle at 50% 34%,#FFF,#E7E9ED 58%,#D2D5DB);
+    box-shadow:inset 0 2px 5px rgba(255,255,255,.9),inset 0 -3px 8px rgba(0,0,0,.16),0 3px 10px rgba(0,0,0,.22);
+    touch-action:none;user-select:none}
+  .pod.dark .wheel{background:radial-gradient(circle at 50% 34%,#3A3C42,#25272C 58%,#191A1E);
+    box-shadow:inset 0 2px 5px rgba(255,255,255,.14),inset 0 -3px 8px rgba(0,0,0,.6),0 3px 10px rgba(0,0,0,.5)}
+  .wheel .lbl{position:absolute;font-size:10px;font-weight:800;letter-spacing:.14em;color:#71757E;pointer-events:none}
+  .pod.dark .wheel .lbl{color:#B9BDC6}
+  .wheel .zone{position:absolute;inset:0;border-radius:50%;background:transparent}
+  .wheel .hub{position:absolute;left:50%;top:50%;width:84px;height:84px;margin:-42px 0 0 -42px;border-radius:50%;
+    background:radial-gradient(circle at 50% 36%,#FFF,#E2E4E9 60%,#CDD0D7);
+    box-shadow:inset 0 1px 3px rgba(255,255,255,.9),0 2px 6px rgba(0,0,0,.28);
+    display:grid;place-items:center;color:#5B5F68}
+  .pod.dark .wheel .hub{background:radial-gradient(circle at 50% 36%,#42444A,#232529 60%,#17181C);color:#C6CAD2}
+  .wheel.spin{box-shadow:inset 0 2px 5px rgba(255,255,255,.9),inset 0 -3px 8px rgba(0,0,0,.16),0 0 0 3px color-mix(in srgb,var(--accent) 55%,transparent)}
+  .marquee{display:inline-block;white-space:nowrap;animation:marq 9s linear infinite}
+  @keyframes marq{0%,12%{transform:translateX(0)}88%,100%{transform:translateX(calc(-100% + 150px))}}
+
   @media (prefers-reduced-motion:reduce){
     *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
     #main{scroll-behavior:auto}
@@ -145,6 +223,7 @@
 </head>
 <body class="font-sans">
 
+<div id="amb" aria-hidden="true"></div>
 <canvas id="fx" class="pointer-events-none fixed inset-0 z-[5] h-full w-full" aria-hidden="true"></canvas>
 <div id="slash" aria-hidden="true"><span class="blade"></span></div>
 
@@ -168,7 +247,7 @@
 
 <div id="shell">
   <!-- ============ SIDEBAR ============ -->
-  <aside id="side" aria-label="Sidebar">
+  <aside id="side" class="glass" aria-label="Sidebar">
     <div class="flex items-center gap-2.5 px-5 pb-1 pt-5">
       <span class="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm font-black" style="background:var(--accent)">G</span>
       <span class="text-[15px] font-extrabold tracking-tight">Gringo Cas</span>
@@ -243,6 +322,9 @@
       <button id="p-shuffle" aria-pressed="false" aria-label="Shuffle" title="Shuffle" class="grid h-8 w-8 place-items-center rounded-full transition hover:bg-white/10" style="color:var(--dim)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="m4 4 5 5"/></svg>
       </button>
+      <button id="p-back10" aria-label="Back 10 seconds" title="Back 10s" class="hidden h-8 w-8 place-items-center rounded-full transition hover:bg-white/10 lg:grid" style="color:var(--dim)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M11 7H5V1"/><path d="M5 7a8 8 0 1 1-2 5.3"/><text x="12" y="16" font-size="8" fill="currentColor" stroke="none" text-anchor="middle">10</text></svg>
+      </button>
       <button id="p-prev" aria-label="Previous" class="grid h-8 w-8 place-items-center rounded-full transition hover:bg-white/10"><svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></button>
       <button id="p-play" aria-label="Play" class="grid h-10 w-10 place-items-center rounded-full bg-white text-black transition hover:scale-105">
         <svg id="ic-play" viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5"><path d="M8 5v14l11-7z"/></svg>
@@ -250,6 +332,9 @@
         <svg id="ic-load" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="hidden h-5 w-5 animate-spin"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></svg>
       </button>
       <button id="p-next" aria-label="Next" class="grid h-8 w-8 place-items-center rounded-full transition hover:bg-white/10"><svg viewBox="0 0 24 24" fill="currentColor" class="h-4 w-4"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg></button>
+      <button id="p-fwd10" aria-label="Forward 10 seconds" title="Forward 10s" class="hidden h-8 w-8 place-items-center rounded-full transition hover:bg-white/10 lg:grid" style="color:var(--dim)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M13 7h6V1"/><path d="M19 7a8 8 0 1 0 2 5.3"/><text x="12" y="16" font-size="8" fill="currentColor" stroke="none" text-anchor="middle">10</text></svg>
+      </button>
       <button id="p-repeat" aria-pressed="false" aria-label="Repeat" title="Repeat" class="grid h-8 w-8 place-items-center rounded-full transition hover:bg-white/10" style="color:var(--dim)">
         <svg id="rep-all" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
         <svg id="rep-one" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="hidden h-4 w-4"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10h1v4"/></svg>
@@ -269,6 +354,9 @@
     <button id="queue-open" aria-label="Open queue" title="Queue" class="grid h-8 w-8 place-items-center rounded-full transition hover:bg-white/10" style="color:var(--dim)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" class="h-4 w-4"><path d="M3 6h13M3 12h13M3 18h9"/><path d="M18 12v8l4-4z" fill="currentColor" stroke="none"/></svg>
     </button>
+    <button id="wheel-open" aria-label="Open wheel player" title="Wheel player" class="grid h-8 w-8 place-items-center rounded-full transition hover:bg-white/10" style="color:var(--dim)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="h-4 w-4"><rect x="5" y="2" width="14" height="20" rx="3"/><circle cx="12" cy="15" r="4.2"/><circle cx="12" cy="15" r="1.1" fill="currentColor"/></svg>
+    </button>
     <button id="saver-start" aria-label="Screensaver" title="Screensaver" class="hidden h-8 w-8 place-items-center rounded-full transition hover:bg-white/10 lg:grid" style="color:var(--dim)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" class="h-4 w-4"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
     </button>
@@ -279,7 +367,7 @@
 
 <!-- ============ QUEUE ============ -->
 <div id="scrim"></div>
-<aside id="queue" role="dialog" aria-label="Play queue" aria-hidden="true">
+<aside id="queue" class="glass" role="dialog" aria-label="Play queue" aria-hidden="true">
   <div class="flex items-center justify-between px-5 pt-5">
     <h2 class="text-base font-bold">Queue</h2>
     <button id="queue-close" class="grid h-8 w-8 place-items-center rounded-full transition hover:bg-white/10" aria-label="Close queue">
@@ -292,7 +380,7 @@
 <!-- ============ PROFILE ============ -->
 <div id="profile-sheet" class="sheet" hidden>
   <div class="absolute inset-0 bg-black/70" data-close></div>
-  <div class="relative w-full max-w-md overflow-y-auto rounded-xl p-6" style="background:var(--panel);max-height:86svh">
+  <div class="glass relative w-full max-w-md overflow-y-auto rounded-2xl p-6" style="max-height:86svh">
     <div class="flex items-center justify-between">
       <h2 class="text-xl font-extrabold">Profile</h2>
       <button class="grid h-8 w-8 place-items-center rounded-full transition hover:bg-white/10" data-close aria-label="Close profile">
@@ -332,7 +420,7 @@
 <!-- ============ ADD TO PLAYLIST ============ -->
 <div id="pick" class="sheet" hidden>
   <div class="absolute inset-0 bg-black/70" data-close></div>
-  <div class="relative w-full max-w-sm rounded-xl p-6" style="background:var(--panel)">
+  <div class="glass relative w-full max-w-sm rounded-2xl p-6">
     <h3 class="text-lg font-extrabold">Add to playlist</h3>
     <p id="pick-track" class="mt-1 truncate text-xs" style="color:var(--dim)">—</p>
     <ul id="pick-list" class="mt-4 max-h-56 space-y-1 overflow-y-auto"></ul>
@@ -341,6 +429,44 @@
       <button id="pick-create" class="rounded-full px-4 text-xs font-bold text-white" style="background:var(--accent)">Create</button>
     </div>
     <button class="mt-4 w-full rounded-full py-2.5 text-xs font-bold transition hover:bg-white/16" style="background:rgba(255,255,255,.1)" data-close>Done</button>
+  </div>
+</div>
+
+<div id="wheelview" role="dialog" aria-label="Wheel player" aria-hidden="true">
+  <div class="backdrop" data-wclose></div>
+  <div class="pod" id="pod">
+    <div class="pod-screen">
+      <div class="flex items-center justify-between px-2.5 py-1.5 text-[10px] font-bold" style="background:linear-gradient(180deg,#3B3F46,#22252A);color:#D8DBE1">
+        <span id="w-status">Now Playing</span>
+        <span class="flex items-center gap-1.5"><span id="w-shuffle" class="opacity-40">⤨</span><span id="w-repeat" class="opacity-40">⟳</span><span id="w-batt">▮▮▮</span></span>
+      </div>
+      <div class="flex gap-3 p-3">
+        <div id="w-art" class="h-24 w-24 shrink-0 overflow-hidden rounded-sm" style="background:#15171B"></div>
+        <div class="min-w-0 flex-1 overflow-hidden">
+          <p class="truncate text-[13px] font-bold" style="color:#F2F4F8" id="w-title">Nothing playing</p>
+          <p class="truncate text-[11px]" style="color:#989DA7" id="w-artist">—</p>
+          <p class="mt-1 text-[10px]" style="color:#7C818B" id="w-pos">— of —</p>
+          <div class="mt-2 h-1.5 rounded-sm" style="background:#23262B">
+            <div id="w-fill" class="h-full rounded-sm" style="width:0%;background:linear-gradient(90deg,#8FB6FF,#5C8DEF)"></div>
+          </div>
+          <p class="mt-1 flex justify-between text-[9px] tabular-nums" style="color:#7C818B"><span id="w-cur">0:00</span><span id="w-dur">0:00</span></p>
+        </div>
+      </div>
+    </div>
+    <div class="wheel" id="wheel" role="group" aria-label="Click wheel">
+      <span class="lbl" style="left:50%;top:12px;transform:translateX(-50%)">MENU</span>
+      <span class="lbl" style="left:14px;top:50%;transform:translateY(-50%)">◀◀</span>
+      <span class="lbl" style="right:14px;top:50%;transform:translateY(-50%)">▶▶</span>
+      <span class="lbl" style="left:50%;bottom:12px;transform:translateX(-50%)">▶ ❚❚</span>
+      <button class="zone" id="w-zone" aria-label="Wheel control"></button>
+      <button class="hub" id="w-hub" aria-label="Select">
+        <svg viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+    </div>
+    <div class="mt-4 flex items-center justify-center gap-2">
+      <button id="pod-skin" class="rounded-full px-3 py-1.5 text-[10px] font-bold" style="background:rgba(0,0,0,.12);color:#4A4E56">Dark shell</button>
+      <button id="wheel-close" class="rounded-full px-3 py-1.5 text-[10px] font-bold" style="background:rgba(0,0,0,.12);color:#4A4E56" data-wclose>Close</button>
+    </div>
   </div>
 </div>
 
@@ -439,6 +565,7 @@
 
   function paint(){
     const on=P.playing;
+    drawWheel();
     ui.icP.classList.toggle('hidden',on);ui.icPa.classList.toggle('hidden',!on);ui.icL.classList.add('hidden');
     ui.play.setAttribute('aria-label',on?'Pause':'Play');
     ui.fav.innerHTML=heart(!!(P.cur&&liked.has(P.cur.id)));
@@ -481,9 +608,15 @@
     ui.title.textContent=track.title;ui.artist.textContent=track.artist;
     const cover=track.art?`<img src="${esc(track.art)}" alt="" class="h-full w-full object-cover" />`:'';
     ui.art.innerHTML=cover;
+    if(!REDUCE&&skipDir){
+      ui.art.classList.remove('skip-l','skip-r');void ui.art.offsetWidth;
+      ui.art.classList.add(skipDir>0?'skip-l':'skip-r');
+      skipDir=0;
+    }
+    ambientFrom(track);
     ui.dur.textContent=track.duration?clock(track.duration):'0:00';
     recent=[track,...recent.filter(t=>t.id!==track.id)].slice(0,12);LS.set('recent',recent);
-    paint();drawQueue();
+    paint();drawQueue();drawWheel();
     if(view==='home')renderHome();
   }
   function toggle(){
@@ -509,8 +642,8 @@
   aC.addEventListener('error',()=>{setLoading(false);P.playing=false;paint();toast('Track unavailable — skipping');setTimeout(advance,600)});
 
   ui.play.addEventListener('click',toggle);
-  $('#p-next').addEventListener('click',()=>step(1));
-  $('#p-prev').addEventListener('click',()=>{if(aC.currentTime>3)aC.currentTime=0;else step(-1)});
+  $('#p-next').addEventListener('click',()=>skipTo(1));
+  $('#p-prev').addEventListener('click',()=>{if(aC.currentTime>3)aC.currentTime=0;else skipTo(-1)});
   ui.seek.addEventListener('input',()=>{const d=aC.duration||0;ui.cur.textContent=clock(ui.seek.value/1000*d);ui.fill.style.width=(ui.seek.value/10)+'%'});
   ui.seek.addEventListener('change',()=>{const d=aC.duration||0;if(d)aC.currentTime=ui.seek.value/1000*d});
   $('#p-vol').addEventListener('input',e=>{P.vol=e.target.value/100;aC.volume=P.vol;LS.set('vol',P.vol)});
@@ -528,7 +661,7 @@
     if(e.altKey&&e.key==='ArrowRight')step(1);
     if(e.altKey&&e.key==='ArrowLeft')step(-1);
     if(e.key==='/'){e.preventDefault();go('search');setTimeout(()=>$('#search').focus(),120)}
-    if(e.key==='Escape'){closeSheets();queueOpen(false);sleep(false)}
+    if(e.key==='Escape'){closeSheets();queueOpen(false);sleep(false);openWheel(false)}
   });
 
   // ============================================================ likes & playlists
@@ -663,7 +796,7 @@
         <h2 class="text-xl font-extrabold">Trending now</h2>
         <button class="text-xs font-bold" style="color:var(--dim)" data-seeall>Show all</button>
       </div>
-      ${TRENDS.length?grid(TRENDS.slice(0,12)):`<p class="mt-4 text-sm" style="color:var(--dim)">${netNote||'Loading…'}</p>`}
+      ${TRENDS.length?grid(TRENDS.slice(0,12)):(netNote?`<p class="mt-4 text-sm" style="color:var(--dim)">${netNote}</p>`:skGrid(10))}
     </div>`;
   }
 
@@ -675,7 +808,7 @@
         ${chips.map((g,i)=>`<button data-genre="${esc(g)}" class="relative aspect-[8/5] overflow-hidden rounded-lg p-4 text-left text-base font-extrabold"
           style="background:hsl(${(i*47)%360} 62% 38%)">${esc(g)}</button>`).join('')}</div>`
         :`<h2 class="mt-6 text-xl font-extrabold">Results for “${esc(searchQ)}”</h2>
-          ${SEARCH.length?trackTable(SEARCH):`<p class="mt-4 text-sm" style="color:var(--dim)">Nothing found.</p>`}`}
+          ${searching?skRows(8):(SEARCH.length?trackTable(SEARCH):`<p class="mt-4 text-sm" style="color:var(--dim)">Nothing found.</p>`)}`}
     </div>`;
   }
 
@@ -816,12 +949,14 @@
   });
 
   // ============================================================ search
-  let sTimer=0;
+  let sTimer=0,searching=false;
   async function doSearch(q){
     searchQ=q;
     if(view!=='search'){view='search';param=null;$$('.navi').forEach(b=>b.setAttribute('aria-current',b.dataset.nav==='search'?'page':'false'))}
     $('#search-spin').classList.remove('hidden');
+    searching=true;SEARCH=[];render();          // show skeleton rows while it flies
     try{SEARCH=await searchMusic(q)}catch(err){SEARCH=[];toast('Search unavailable')}
+    searching=false;
     $('#search-spin').classList.add('hidden');
     render();
   }
@@ -1168,6 +1303,141 @@
   $('#saver-start').addEventListener('click',()=>setTimeout(()=>sleep(true),60));
 
 
+  // ============================================================ ambient colour
+  // Glass needs colour behind it to refract. Sample the cover and drive the
+  // backdrop from it; if the host taints the canvas we simply keep the accent.
+  const ambCache=new Map();
+  function ambientFrom(track){
+    if(!track||!track.art)return;
+    if(ambCache.has(track.art))return applyAmb(ambCache.get(track.art));
+    const img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=()=>{
+      try{
+        const c=document.createElement('canvas');c.width=c.height=24;
+        const g=c.getContext('2d',{willReadFrequently:true});
+        g.drawImage(img,0,0,24,24);
+        const d=g.getImageData(0,0,24,24).data;
+        const pick=(x0,y0)=>{
+          let r=0,gg=0,b=0,n=0;
+          for(let y=y0;y<y0+12;y++)for(let x=x0;x<x0+12;x++){
+            const i=(y*24+x)*4;r+=d[i];gg+=d[i+1];b+=d[i+2];n++}
+          // lift dark covers so the wash is visible without washing out text
+          const f=v=>Math.min(255,Math.round(v/n*1.25+18));
+          return `rgb(${f(r)},${f(gg)},${f(b)})`;
+        };
+        const trio=[pick(0,0),pick(12,12),pick(12,0)];
+        ambCache.set(track.art,trio);applyAmb(trio);
+      }catch(e){}
+    };
+    img.src=track.art;
+  }
+  function applyAmb(t){
+    const r=document.documentElement;
+    r.style.setProperty('--amb1',t[0]);r.style.setProperty('--amb2',t[1]);r.style.setProperty('--amb3',t[2]);
+  }
+
+  // ============================================================ press ripples
+  document.addEventListener('pointerdown',e=>{
+    const b=e.target.closest('button,.navi,.plitem,.chip');
+    if(!b||REDUCE)return;
+    if(getComputedStyle(b).position==='static')b.style.position='relative';
+    b.classList.add('pressable');
+    const r=b.getBoundingClientRect(),d=Math.max(r.width,r.height)*1.6;
+    const i=document.createElement('span');
+    i.className='ink';i.style.cssText=`width:${d}px;height:${d}px;left:${e.clientX-r.left}px;top:${e.clientY-r.top}px`;
+    b.appendChild(i);setTimeout(()=>i.remove(),560);
+  },{passive:true});
+
+  // ============================================================ click wheel
+  const wv=$('#wheelview'),pod=$('#pod'),wheel=$('#wheel');
+  let wheelOn=false,turnAcc=0,lastAng=null,turning=false;
+  function openWheel(on){
+    wheelOn=on;wv.classList.toggle('on',on);wv.setAttribute('aria-hidden',String(!on));
+    if(on)drawWheel();
+  }
+  $('#wheel-open').addEventListener('click',()=>openWheel(true));
+  $$('[data-wclose]').forEach(b=>b.addEventListener('click',()=>openWheel(false)));
+  $('#pod-skin').addEventListener('click',()=>{
+    pod.classList.toggle('dark');
+    $('#pod-skin').textContent=pod.classList.contains('dark')?'Light shell':'Dark shell';
+    LS.set('podDark',pod.classList.contains('dark'));
+  });
+  if(LS.get('podDark',false)){pod.classList.add('dark');$('#pod-skin').textContent='Light shell'}
+
+  // Tap zones by angle, the way the original hardware divided the ring.
+  $('#w-zone').addEventListener('click',e=>{
+    const r=wheel.getBoundingClientRect();
+    const dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);
+    const dist=Math.hypot(dx,dy);
+    if(dist<46)return;                       // hub handles its own clicks
+    const a=Math.atan2(dy,dx)*180/Math.PI;   // -180..180, 0 = right
+    if(a>-135&&a<=-45)openWheel(false);      // top: menu
+    else if(a>-45&&a<=45)skipTo(1);          // right
+    else if(a>45&&a<=135)toggle();           // bottom
+    else skipTo(-1);                         // left
+    bump();
+  });
+  $('#w-hub').addEventListener('click',()=>{toggle();bump()});
+
+  // Turning the ring changes volume, with the screen showing the level.
+  wheel.addEventListener('pointerdown',e=>{
+    turning=true;lastAng=null;wheel.setPointerCapture(e.pointerId);
+  });
+  wheel.addEventListener('pointermove',e=>{
+    if(!turning)return;
+    const r=wheel.getBoundingClientRect();
+    const a=Math.atan2(e.clientY-(r.top+r.height/2),e.clientX-(r.left+r.width/2))*180/Math.PI;
+    if(lastAng!==null){
+      let d=a-lastAng;
+      if(d>180)d-=360;if(d<-180)d+=360;
+      turnAcc+=d;
+      if(Math.abs(turnAcc)>12){
+        const dir=turnAcc>0?1:-1;turnAcc=0;
+        P.vol=Math.max(0,Math.min(1,P.vol+dir*.05));
+        aC.volume=P.vol;LS.set('vol',P.vol);$('#p-vol').value=Math.round(P.vol*100);
+        wheel.classList.add('spin');
+        $('#w-status').textContent='Volume '+Math.round(P.vol*100)+'%';
+        clearTimeout(wheel._t);
+        wheel._t=setTimeout(()=>{wheel.classList.remove('spin');drawWheel()},900);
+      }
+    }
+    lastAng=a;
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(ev=>wheel.addEventListener(ev,()=>{turning=false;lastAng=null}));
+
+  function bump(){if(!REDUCE)pod.animate([{transform:'scale(.985)'},{transform:'none'}],{duration:170,easing:'ease-out'})}
+  function drawWheel(){
+    if(!wheelOn)return;
+    const t=P.cur;
+    $('#w-title').textContent=t?t.title:'Nothing playing';
+    $('#w-artist').textContent=t?t.artist:'—';
+    $('#w-status').textContent=P.playing?'Now Playing':(t?'Paused':'Now Playing');
+    $('#w-pos').textContent=t?`${P.index+1} of ${P.queue.length}`:'— of —';
+    $('#w-art').innerHTML=t&&t.art?`<img src="${esc(t.art)}" alt="" class="h-full w-full object-cover" />`:'';
+    $('#w-shuffle').style.opacity=P.shuffle?'1':'.35';
+    $('#w-repeat').style.opacity=P.repeat!=='off'?'1':'.35';
+    $('#w-hub').innerHTML=P.playing
+      ? '<svg viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="currentColor" class="h-5 w-5"><path d="M8 5v14l11-7z"/></svg>';
+  }
+
+  // ============================================================ skips
+  // Direction is remembered so the artwork enters from the side you travelled.
+  let skipDir=0;
+  function skipTo(d){skipDir=d;step(d)}
+  $('#p-back10').addEventListener('click',()=>{aC.currentTime=Math.max(0,aC.currentTime-10);flash('−10s')});
+  $('#p-fwd10').addEventListener('click',()=>{aC.currentTime=Math.min(aC.duration||0,aC.currentTime+10);flash('+10s')});
+  function flash(msg){toast(msg)}
+
+  // ============================================================ skeletons
+  const skCard=()=>`<div class="card"><div class="sk aspect-square w-full rounded"></div>
+    <div class="sk mt-3 h-3.5 w-3/4"></div><div class="sk mt-2 h-3 w-1/2"></div></div>`;
+  const skGrid=n=>`<div class="mt-4 grid gap-4" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">${Array.from({length:n},skCard).join('')}</div>`;
+  const skRows=n=>`<div class="mt-4 space-y-2">${Array.from({length:n},()=>`<div class="flex items-center gap-3 p-1.5">
+    <div class="sk h-10 w-10 rounded"></div><div class="flex-1"><div class="sk h-3.5 w-1/3"></div><div class="sk mt-2 h-3 w-1/5"></div></div>
+    <div class="sk h-3 w-8"></div></div>`).join('')}</div>`;
+
   // ============================================================ loop
   function frame(){
     requestAnimationFrame(frame);
@@ -1177,6 +1447,12 @@
       ui.cur.textContent=clock(t);
       if(d&&isFinite(d))ui.dur.textContent=clock(d);
       if(document.activeElement!==ui.seek&&d){const p=t/d*100;ui.seek.value=Math.round(p*10);ui.fill.style.width=p+'%'}
+      if(wheelOn){
+        const f=$('#w-fill');if(f)f.style.width=(d?t/d*100:0)+'%';
+        const wc=$('#w-cur'),wd=$('#w-dur');
+        if(wc)wc.textContent=clock(t);
+        if(wd)wd.textContent=d&&isFinite(d)?clock(d):'0:00';
+      }
     }
     if(saverOn){drawScene();return}
     fxDraw();
