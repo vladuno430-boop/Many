@@ -3,7 +3,7 @@
 # MediaBot — запуск в Termux.
 #
 #   bash termux/run.sh           # бот (по умолчанию)
-#   bash termux/run.sh api       # REST API + админ-панель на 127.0.0.1:8000
+#   bash termux/run.sh api       # REST API + админ-панель
 #   bash termux/run.sh migrate   # применить миграции
 #   bash termux/run.sh doctor    # диагностика окружения
 # =============================================================================
@@ -16,16 +16,22 @@ ROLE="${1:-bot}"
 [ -d "${VENV_DIR}" ] || { echo "Окружение не найдено. Запустите: bash termux/install.sh"; exit 1; }
 [ -f "${PROJECT_DIR}/.env" ] || { echo ".env не найден. Запустите: bash termux/install.sh"; exit 1; }
 
-# shellcheck disable=SC1091
 source "${VENV_DIR}/bin/activate"
 cd "${PROJECT_DIR}"
 
 set -a
-# shellcheck disable=SC1091
 source "${PROJECT_DIR}/.env"
 set +a
 
-# Не даём Android усыпить процесс, пока бот работает.
+# При первом запуске один раз просим ключ ИИ и проверяем его.
+if [ "${ROLE}" = "bot" ] && [ -z "${AI__API_KEY:-}" ]; then
+    echo "ИИ-чат ещё не настроен."
+    bash "${PROJECT_DIR}/termux/configure-ai.sh"
+    set -a
+    source "${PROJECT_DIR}/.env"
+    set +a
+fi
+
 if command -v termux-wake-lock >/dev/null 2>&1; then
     termux-wake-lock
     trap 'termux-wake-unlock 2>/dev/null || true' EXIT
@@ -33,7 +39,7 @@ fi
 
 case "${ROLE}" in
     bot)
-        echo "Запускаю бота (standalone)…  Ctrl+C — остановить"
+        echo "Запускаю бота (скачивание + ИИ-чат)…  Ctrl+C — остановить"
         exec python -m mediabot bot
         ;;
     api)
