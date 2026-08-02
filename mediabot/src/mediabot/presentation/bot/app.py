@@ -8,7 +8,11 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.base import BaseStorage
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.storage.redis import RedisStorage
-from aiogram.types import BotCommand, BotCommandScopeAllPrivateChats
+from aiogram.types import (
+    BotCommand,
+    BotCommandScopeAllGroupChats,
+    BotCommandScopeAllPrivateChats,
+)
 
 from mediabot.core.container import Container
 from mediabot.core.logging import LogChannel, get_logger
@@ -16,6 +20,7 @@ from mediabot.domain.enums import Language
 from mediabot.infrastructure.cache.redis_cache import create_redis
 from mediabot.presentation.bot.handlers import (
     admin,
+    ai,
     billing,
     captcha,
     common,
@@ -51,6 +56,21 @@ _COMMAND_KEYS: tuple[tuple[str, str], ...] = (
     ("promo", "promo.prompt"),
     ("settings", "menu.settings"),
     ("help", "menu.help"),
+)
+
+#: AI commands are intentionally language-neutral and available in groups.
+_AI_COMMANDS: tuple[BotCommand, ...] = (
+    BotCommand(command="ask", description="Задать вопрос нейросети"),
+    BotCommand(command="translate", description="Перевести текст"),
+    BotCommand(command="summary", description="Кратко пересказать текст"),
+    BotCommand(command="code", description="Помощь с программированием"),
+    BotCommand(command="idea", description="Придумать идеи"),
+    BotCommand(command="ai_new", description="Очистить память ИИ"),
+    BotCommand(command="ai_model", description="Текущая модель ИИ"),
+    BotCommand(command="ai_models", description="Доступные модели"),
+    BotCommand(command="ai_setmodel", description="Выбрать модель"),
+    BotCommand(command="ai_mode", description="Режим ИИ в группе"),
+    BotCommand(command="ai_help", description="Справка по ИИ"),
 )
 
 
@@ -92,6 +112,9 @@ def create_dispatcher(container: Container) -> Dispatcher:
         library.router,
         wallet.router,
         settings_handlers.router,
+        # AI commands and mentions run before the broad URL handler. The AI
+        # catch-all skips ordinary links so multimedia downloads still win.
+        ai.router,
         # The link handler is last: it owns the broad "any text with a URL"
         # filter and must not shadow the command/menu routers above.
         download.router,
@@ -100,17 +123,24 @@ def create_dispatcher(container: Container) -> Dispatcher:
 
 
 async def set_commands(bot: Bot) -> None:
-    """Publish the command list in every supported language."""
+    """Publish private commands in every language and AI commands in groups."""
     for language in Language:
         t = translator_for(language)
         commands = [
-            BotCommand(command=command, description=t(key)[:256]) for command, key in _COMMAND_KEYS
+            BotCommand(command=command, description=t(key)[:256])
+            for command, key in _COMMAND_KEYS
         ]
+        commands.extend(_AI_COMMANDS)
         await bot.set_my_commands(
             commands,
             scope=BotCommandScopeAllPrivateChats(),
             language_code=language.value,
         )
+
+    await bot.set_my_commands(
+        list(_AI_COMMANDS),
+        scope=BotCommandScopeAllGroupChats(),
+    )
 
 
 async def on_startup(container: Container, bot: Bot) -> None:
@@ -148,7 +178,7 @@ async def _maintenance_loop(container: Container, stop: asyncio.Event) -> None:
     """Periodic housekeeping for the standalone mode.
 
     In the distributed topology Celery beat and the scheduler process own these
-    jobs.  With a single process there is nobody else to run them, so the bot
+    jobs. With a single process there is nobody else to run them, so the bot
     does it on a slow timer: expired subscriptions, stale jobs, artefact
     clean-up and the statistics roll-up.
     """
@@ -176,9 +206,7 @@ async def run_polling(container: Container) -> None:
     bot = container.bot()
     dispatcher = create_dispatcher(container)
 
-    from mediabot.infrastructure.notifications.telegram import (
-        TelegramDelivery,
-    )
+    from mediabot.infrastructure.notifications.telegram import TelegramDelivery
 
     container.set_delivery(TelegramDelivery(bot, container.settings, container.uow_factory))
 
