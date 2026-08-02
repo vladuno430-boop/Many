@@ -1,0 +1,33 @@
+# Alerting rules covering the failure modes that actually page an operator.
+groups:
+  - name: mediabot
+    rules:
+      - alert: MediaBotApiDown
+        expr: up{job="mediabot-api"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: "MediaBot API is unreachable"
+
+      - alert: DownloadFailureRateHigh
+        expr: >
+          sum(rate(mediabot_downloads_total{status="failed"}[10m]))
+          / clamp_min(sum(rate(mediabot_downloads_total[10m])), 0.001) > 0.25
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "More than 25% of downloads are failing"
+
+      - alert: QueueBacklog
+        expr: mediabot_queue_size > 200
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "Download queue backlog is growing — scale the workers"
+
+      - alert: DiskAlmostFull
+        expr: mediabot_disk_free_bytes < 5e9
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "Less than 5 GB free on the storage volume"

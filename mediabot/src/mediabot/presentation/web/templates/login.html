@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Sign in · MediaBot Admin</title>
+  <style>
+    :root { --bg:#0b0f17; --surface:#131a26; --border:#243044; --text:#e6ecf5; --muted:#8b9ab1; --accent:#4f8cff; --danger:#ff5c5c; }
+    * { box-sizing: border-box; }
+    body {
+      margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+      background: radial-gradient(1200px 600px at 50% -10%, #16223a 0%, var(--bg) 60%);
+      color: var(--text);
+      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .box { width: 340px; background: var(--surface); border:1px solid var(--border); border-radius:14px; padding:28px; }
+    h1 { margin:0 0 4px; font-size:20px; }
+    p.sub { margin:0 0 20px; color: var(--muted); font-size:13px; }
+    label { display:block; font-size:13px; color: var(--muted); margin-bottom:6px; }
+    input {
+      width:100%; margin-bottom:14px; padding:10px 12px; border-radius:8px;
+      background:#1a2331; border:1px solid var(--border); color:var(--text); font-size:14px;
+    }
+    button { width:100%; padding:11px; border:0; border-radius:8px; background:var(--accent); color:#fff; font-size:15px; cursor:pointer; }
+    .error { background: rgba(255,92,92,.12); border:1px solid var(--danger); color:var(--danger);
+             padding:9px 12px; border-radius:8px; font-size:13px; margin-bottom:14px; }
+    footer { margin-top:18px; text-align:center; color:var(--muted); font-size:12px; }
+  </style>
+</head>
+<body>
+  <form class="box" method="post" action="/admin/login" autocomplete="off">
+    <h1>⚡ MediaBot</h1>
+    <p class="sub">Administrator sign-in</p>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <label for="username">Username</label>
+    <input id="username" name="username" type="text" required maxlength="64" autofocus>
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" required maxlength="128">
+    <button type="submit">Sign in</button>
+    <footer>v{{ version }}</footer>
+  </form>
+</body>
+</html>

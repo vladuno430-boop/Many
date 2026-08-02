@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Promo codes · MediaBot{% endblock %}
+{% block heading %}Promo codes{% endblock %}
+{% block content %}
+<div class="card" style="margin-bottom:20px">
+  <div class="label">Create a promo code</div>
+  <form class="toolbar" method="post" action="/admin/promos">
+    <select name="promo_type" required>
+      {% for item in promo_types %}<option value="{{ item }}">{{ item }}</option>{% endfor %}
+    </select>
+    <input type="number" name="value" placeholder="value" min="0" max="1000000" required>
+    <input type="text" name="code" placeholder="code (optional)" maxlength="32">
+    <input type="number" name="max_activations" placeholder="activations" min="1">
+    <input type="number" name="expires_in_days" placeholder="TTL days" min="1">
+    <button class="primary" type="submit">Create</button>
+  </form>
+</div>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Code</th><th>Type</th><th>Value</th><th>Used</th><th>Status</th><th>Expires</th><th>Campaign</th></tr>
+    </thead>
+    <tbody>
+    {% for promo in promos %}
+      <tr>
+        <td><code>{{ promo.code }}</code></td>
+        <td>{{ promo.promo_type.value }}</td>
+        <td>{{ promo.value }}</td>
+        <td>{{ promo.activations_used }} / {{ promo.max_activations or '∞' }}</td>
+        <td><span class="badge {{ promo.status.value }}">{{ promo.status.value }}</span></td>
+        <td class="muted">{{ promo.expires_at.strftime('%d.%m.%Y') if promo.expires_at else '—' }}</td>
+        <td class="muted">{{ promo.campaign or '—' }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="muted">No promo codes yet.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

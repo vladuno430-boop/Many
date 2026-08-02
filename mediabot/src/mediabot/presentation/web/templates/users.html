@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Users · MediaBot{% endblock %}
+{% block heading %}Users{% endblock %}
+{% block content %}
+<form class="toolbar" method="get" action="/admin/users">
+  <input type="search" name="q" value="{{ query }}" placeholder="id, @username or name" maxlength="64">
+  <button class="primary" type="submit">Search</button>
+  <span class="muted">page {{ page }}</span>
+</form>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th><th>User</th><th>Tier</th><th>Status</th>
+        <th>Downloads</th><th>Traffic</th><th>Coins</th><th>Joined</th><th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for row in rows %}
+      <tr>
+        <td><code>{{ row.user.id }}</code></td>
+        <td>
+          {{ row.user.full_name }}
+          {% if row.user.username %}<div class="muted">@{{ row.user.username }}</div>{% endif %}
+        </td>
+        <td><span class="badge {{ row.user.tier.value }}">{{ row.user.tier.value }}</span></td>
+        <td><span class="badge {{ row.user.status.value }}">{{ row.user.status.value }}</span></td>
+        <td>{{ row.user.total_downloads }}</td>
+        <td>{{ row.user.total_bytes | bytes }}</td>
+        <td>{{ row.balance }}</td>
+        <td class="muted">{{ row.user.created_at.strftime('%d.%m.%Y') }}</td>
+        <td>
+          <form class="inline" method="post" action="/admin/users/{{ row.user.id }}/action">
+            <input type="hidden" name="action" value="{{ 'unban' if row.user.status.value == 'banned' else 'ban' }}">
+            <button type="submit" class="danger">
+              {{ 'Unban' if row.user.status.value == 'banned' else 'Ban' }}
+            </button>
+          </form>
+          <form class="inline" method="post" action="/admin/users/{{ row.user.id }}/action">
+            <input type="hidden" name="action" value="grant_premium">
+            <input type="hidden" name="value" value="30">
+            <button type="submit">+30d ⭐</button>
+          </form>
+          <form class="inline" method="post" action="/admin/users/{{ row.user.id }}/action">
+            <input type="hidden" name="action" value="grant_vip">
+            <input type="hidden" name="value" value="30">
+            <button type="submit">+30d 💎</button>
+          </form>
+          <form class="inline" method="post" action="/admin/users/{{ row.user.id }}/action">
+            <input type="hidden" name="action" value="coins">
+            <input type="hidden" name="value" value="100">
+            <button type="submit">+100 🪙</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="9" class="muted">No users found.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="toolbar" style="margin-top:16px">
+  {% if page > 1 %}<a href="/admin/users?q={{ query }}&page={{ page - 1 }}">← Previous</a>{% endif %}
+  <a href="/admin/users?q={{ query }}&page={{ page + 1 }}">Next →</a>
+</div>
+{% endblock %}

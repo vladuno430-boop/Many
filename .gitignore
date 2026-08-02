@@ -1,1 +1,30 @@
 node_modules/
+
+# --- Python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# --- Tooling ----------------------------------------------------------------
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# --- Secrets and runtime data ----------------------------------------------
+.env
+.env.*
+!.env.example
+*.log
+mediabot/deploy/nginx/certs/*
+!mediabot/deploy/nginx/certs/.gitkeep
+mediabot/storage/
+mediabot/tmp/

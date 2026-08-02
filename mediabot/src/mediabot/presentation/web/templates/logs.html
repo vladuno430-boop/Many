@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Audit log · MediaBot{% endblock %}
+{% block heading %}Audit log{% endblock %}
+{% block content %}
+<div class="card">
+  <table>
+    <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th><th>Summary</th><th>IP</th></tr></thead>
+    <tbody>
+    {% for entry in entries %}
+      <tr>
+        <td class="muted">{{ entry.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+        <td>{{ entry.actor_name }}</td>
+        <td><span class="badge">{{ entry.action }}</span></td>
+        <td class="muted">{{ entry.target }}</td>
+        <td>{{ entry.summary }}</td>
+        <td class="muted">{{ entry.ip or '—' }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="muted">No entries.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

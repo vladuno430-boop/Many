@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The suite is hermetic: SQLite + fakeredis + the in-memory dispatcher.
+  MEDIABOT_ENV_FILE: /dev/null
+
+jobs:
+  quality:
+    name: Lint, types and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mediabot
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg libmagic1
+
+      - name: Install the project
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Ruff (lint)
+        run: ruff check src tests migrations
+
+      - name: Ruff (format)
+        run: ruff format --check src tests migrations
+
+      - name: Mypy (strict)
+        run: mypy src
+
+      - name: Tests
+        run: pytest --cov --cov-report=term-missing
+
+      - name: Verify the migration applies and rolls back
+        run: |
+          python - <<'PY'
+          import os, sys
+          os.environ["DB__URL_OVERRIDE"] = "sqlite:///ci-check.db"
+          sys.path.insert(0, "src")
+          from alembic import command
+          from alembic.config import Config
+
+          config = Config("alembic.ini")
+          command.upgrade(config, "head")
+          command.downgrade(config, "base")
+          print("migration round-trip OK")
+          PY
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: mediabot
+          push: false
+          tags: mediabot:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

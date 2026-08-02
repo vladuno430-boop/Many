@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Queue · MediaBot{% endblock %}
+{% block heading %}Queue &amp; errors{% endblock %}
+{% block content %}
+<div class="grid">
+  <div class="card"><div class="label">Waiting</div><div class="value">{{ snapshot.waiting }}</div></div>
+  <div class="card"><div class="label">Running</div><div class="value">{{ snapshot.running }}</div></div>
+  <div class="card"><div class="label">Capacity</div><div class="value">{{ snapshot.capacity }}</div></div>
+</div>
+
+<div class="toolbar" style="margin-top:16px">
+  <form method="post" action="/admin/queue/clear" class="inline">
+    <button class="danger" type="submit">Clear queue</button>
+  </form>
+  <a href="/admin/queue">Refresh</a>
+</div>
+
+<div class="card">
+  <div class="label">Waiting jobs</div>
+  <table>
+    <thead><tr><th>#</th><th>User</th><th>Priority</th><th>Title</th><th>Platform</th><th>Enqueued</th></tr></thead>
+    <tbody>
+    {% for entry in snapshot.entries %}
+      <tr>
+        <td>{{ entry.download_id }}</td>
+        <td><code>{{ entry.user_id }}</code></td>
+        <td>{{ entry.priority }}</td>
+        <td>{{ entry.title or '—' }}</td>
+        <td class="muted">{{ entry.platform or '—' }}</td>
+        <td class="muted">{{ entry.enqueued_at.strftime('%d.%m %H:%M:%S') }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="muted">The queue is empty.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card" style="margin-top:20px">
+  <div class="label">Recent errors</div>
+  <table>
+    <thead><tr><th>When</th><th>Code</th><th>Component</th><th>User</th><th>Message</th></tr></thead>
+    <tbody>
+    {% for error in errors %}
+      <tr>
+        <td class="muted">{{ error.created_at.strftime('%d.%m %H:%M') }}</td>
+        <td><span class="badge failed">{{ error.code }}</span></td>
+        <td>{{ error.component }}</td>
+        <td class="muted">{{ error.user_id or '—' }}</td>
+        <td>{{ error.message[:120] }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="muted">No unresolved errors.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
