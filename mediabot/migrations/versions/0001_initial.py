@@ -53,7 +53,7 @@ def upgrade() -> None:
         sa.Column("failed_logins", sa.Integer(), nullable=False),
         sa.Column("locked_until", sa.DateTime(timezone=True), nullable=True),
         sa.Column("totp_secret", sa.String(length=255), nullable=True),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -108,7 +108,7 @@ def upgrade() -> None:
         sa.Column("payload", sa.JSON(), nullable=False),
         sa.Column("ip_address", sa.String(length=64), nullable=True),
         sa.Column("user_agent", sa.String(length=255), nullable=True),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -140,7 +140,7 @@ def upgrade() -> None:
         sa.Column("traceback", sa.Text(), nullable=True),
         sa.Column("resolved", sa.Boolean(), nullable=False),
         sa.Column("occurrences", sa.Integer(), nullable=False),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -170,7 +170,7 @@ def upgrade() -> None:
         sa.Column("is_default", sa.Boolean(), nullable=False),
         sa.Column("translation_progress", sa.Integer(), nullable=False),
         sa.Column("notes", sa.Text(), nullable=True),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -243,7 +243,7 @@ def upgrade() -> None:
         sa.Column("new_users_only", sa.Boolean(), nullable=False),
         sa.Column("created_by_admin_id", sa.BigInteger(), nullable=True),
         sa.Column("campaign", sa.String(length=64), nullable=True),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -271,7 +271,7 @@ def upgrade() -> None:
         sa.Column("description", sa.String(length=255), nullable=True),
         sa.Column("is_public", sa.Boolean(), nullable=False),
         sa.Column("updated_by_admin_id", sa.BigInteger(), nullable=True),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -310,7 +310,7 @@ def upgrade() -> None:
         sa.Column("by_platform", sa.JSON(), nullable=False),
         sa.Column("by_hour", sa.JSON(), nullable=False),
         sa.Column("server_load", sa.Float(), nullable=False),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -436,7 +436,7 @@ def upgrade() -> None:
         sa.Column("reward_coins", sa.Integer(), nullable=False),
         sa.Column("progress", sa.Integer(), nullable=False),
         sa.Column("notified", sa.Boolean(), nullable=False),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -566,7 +566,7 @@ def upgrade() -> None:
         sa.Column("status_message_id", sa.BigInteger(), nullable=True),
         sa.Column("reply_to_message_id", sa.BigInteger(), nullable=True),
         sa.Column("extra", sa.JSON(), nullable=False),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -602,7 +602,7 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=64), nullable=False),
         sa.Column("icon", sa.String(length=8), nullable=False),
         sa.Column("items_count", sa.Integer(), nullable=False),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -669,7 +669,7 @@ def upgrade() -> None:
         sa.Column("attempts", sa.Integer(), nullable=False),
         sa.Column("error", sa.String(length=255), nullable=True),
         sa.Column("broadcast_id", sa.String(length=64), nullable=True),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -751,7 +751,7 @@ def upgrade() -> None:
         sa.Column("failure_reason", sa.String(length=255), nullable=True),
         sa.Column("provider_payload", sa.Text(), nullable=True),
         sa.Column("extra", sa.JSON(), nullable=False),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -789,7 +789,7 @@ def upgrade() -> None:
         sa.Column("coins_awarded", sa.Integer(), nullable=False),
         sa.Column("premium_days_awarded", sa.Integer(), nullable=False),
         sa.Column("source", sa.String(length=32), nullable=True),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -826,7 +826,7 @@ def upgrade() -> None:
         sa.Column("ads_disabled", sa.Boolean(), nullable=False),
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("note", sa.String(length=255), nullable=True),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -856,7 +856,7 @@ def upgrade() -> None:
         sa.Column("balance", sa.BigInteger(), nullable=False),
         sa.Column("total_earned", sa.BigInteger(), nullable=False),
         sa.Column("total_spent", sa.BigInteger(), nullable=False),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -954,7 +954,7 @@ def upgrade() -> None:
         sa.Column("telegram_file_id", sa.String(length=255), nullable=True),
         sa.Column("is_favorite", sa.Boolean(), nullable=False),
         sa.Column("repeat_count", sa.Integer(), nullable=False),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -993,7 +993,7 @@ def upgrade() -> None:
         sa.Column("enqueued_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("started_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("locked_by", sa.String(length=64), nullable=True),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -1077,7 +1077,7 @@ def upgrade() -> None:
         ),
         sa.Column("thumbnail_url", sa.Text(), nullable=True),
         sa.Column("note", sa.String(length=255), nullable=True),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -1120,7 +1120,7 @@ def upgrade() -> None:
             sa.ForeignKey("payments.id", ondelete="SET NULL"),
             nullable=True,
         ),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -1185,7 +1185,7 @@ def upgrade() -> None:
         ),
         sa.Column("granted_by_admin_id", sa.BigInteger(), nullable=True),
         sa.Column("note", sa.String(length=255), nullable=True),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -1249,7 +1249,7 @@ def upgrade() -> None:
         sa.Column("balance_after", sa.BigInteger(), nullable=False),
         sa.Column("comment", sa.String(length=255), nullable=True),
         sa.Column("reference", sa.String(length=64), nullable=True),
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        sa.Column("id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),

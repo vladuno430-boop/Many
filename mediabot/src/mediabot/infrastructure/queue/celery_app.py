@@ -23,10 +23,19 @@ from celery.schedules import crontab
 from kombu import Queue
 
 from mediabot.core.config import Settings, get_settings
+from mediabot.infrastructure.queue.queues import (
+    QUEUE_DOWNLOADS,
+    QUEUE_MAINTENANCE,
+    QUEUE_NOTIFICATIONS,
+)
 
-QUEUE_DOWNLOADS = "downloads"
-QUEUE_NOTIFICATIONS = "notifications"
-QUEUE_MAINTENANCE = "maintenance"
+__all__ = [
+    "QUEUE_DOWNLOADS",
+    "QUEUE_MAINTENANCE",
+    "QUEUE_NOTIFICATIONS",
+    "celery_app",
+    "create_celery_app",
+]
 
 
 def create_celery_app(settings: Settings | None = None) -> Celery:

@@ -15,7 +15,7 @@ a worker never opens a Telegram session it does not use.
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Any, Self
+from typing import Any, Self, cast
 
 from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
@@ -24,7 +24,11 @@ from redis.asyncio import Redis
 
 from mediabot.application.services.admin_service import AdminService
 from mediabot.application.services.analytics_service import StatisticsService
-from mediabot.application.services.download_service import DownloadService, MediaDelivery
+from mediabot.application.services.download_service import (
+    DownloadService,
+    MediaDelivery,
+    ProgressSink,
+)
 from mediabot.application.services.economy_service import (
     AchievementsService,
     DailyBonusService,
@@ -54,6 +58,7 @@ from mediabot.domain.services.format_selection import FormatSelector
 from mediabot.domain.services.limits import LimitService
 from mediabot.domain.services.promo import PromoService
 from mediabot.domain.services.queueing import QueueService
+from mediabot.infrastructure.cache.memory import InMemoryProgressPublisher, InMemoryRedis
 from mediabot.infrastructure.cache.progress import ProgressPublisher
 from mediabot.infrastructure.cache.redis_cache import (
     CacheService,
@@ -69,7 +74,8 @@ from mediabot.infrastructure.db.session import (
 from mediabot.infrastructure.downloader.ffmpeg import FFmpegService
 from mediabot.infrastructure.downloader.ytdlp_adapter import YtDlpAdapter
 from mediabot.infrastructure.payments.providers import PaymentGatewayRegistry
-from mediabot.infrastructure.queue.dispatcher import CeleryDispatcher, TaskDispatcher
+from mediabot.infrastructure.queue.dispatcher import TaskDispatcher
+from mediabot.infrastructure.queue.inline import InlineDispatcher
 from mediabot.infrastructure.storage import StorageService
 
 
@@ -103,7 +109,14 @@ class Container:
 
     @cached_property
     def redis(self) -> Redis:
+        """Redis client, or its in-process stand-in in standalone mode."""
+        if not self._use_redis:
+            return cast(Redis, InMemoryRedis())
         return create_redis(self.settings.redis)
+
+    @property
+    def _use_redis(self) -> bool:
+        return self.settings.redis.enabled and not self.settings.app.is_standalone
 
     @cached_property
     def cache(self) -> CacheService:
@@ -118,8 +131,23 @@ class Container:
         return DistributedLock(self.redis)
 
     @cached_property
-    def progress_publisher(self) -> ProgressPublisher:
+    def progress_publisher(self) -> ProgressSink:
+        """Sink the downloader writes progress to.
+
+        Distributed mode uses a synchronous Redis client because the worker is
+        a different process; standalone keeps the snapshots in memory, which
+        also avoids a second Redis connection on a phone.
+        """
+        if not self._use_redis:
+            return InMemoryProgressPublisher()
         return ProgressPublisher(self.settings.redis)
+
+    async def progress_snapshot(self, download_id: int) -> dict[str, Any] | None:
+        """Latest progress of a job, whichever sink is configured."""
+        publisher = self.progress_publisher
+        if isinstance(publisher, InMemoryProgressPublisher):
+            return publisher.snapshot(download_id)
+        return await self.cache.get_progress(download_id)
 
     @cached_property
     def storage(self) -> StorageService:
@@ -137,11 +165,56 @@ class Container:
 
     @cached_property
     def dispatcher(self) -> TaskDispatcher:
+        """Celery in production, an in-process runner in standalone mode."""
         if self._dispatcher_override is not None:
             return self._dispatcher_override
+        if self.settings.app.is_standalone:
+            inline = InlineDispatcher(
+                max_concurrent_jobs=self.settings.downloader.max_concurrent_jobs
+            )
+            inline.bind(
+                download_runner=self._run_download_inline,
+                notification_runner=self._send_notification_inline,
+                broadcast_runner=self._send_broadcast_inline,
+            )
+            return inline
         from mediabot.infrastructure.queue.celery_app import celery_app
+        from mediabot.infrastructure.queue.celery_dispatcher import CeleryDispatcher
 
         return CeleryDispatcher(celery_app)
+
+    # -- inline runners used by the standalone dispatcher ----------------- #
+    async def _run_download_inline(self, download_id: int) -> None:
+        await self.downloads.execute(download_id, worker_name="inline")
+
+    async def _send_notification_inline(self, notification_id: int) -> bool:
+        from mediabot.infrastructure.notifications.telegram import NotificationSender
+
+        async with self.uow_factory() as uow:
+            notification = await uow.notifications.get(notification_id)
+            user = await uow.users.get(notification.user_id) if notification else None
+        if notification is None:
+            return False
+        if user is None or not user.notifications_enabled:
+            await self.notifications.mark_skipped(notification_id, "notifications disabled")
+            return False
+
+        delivered = await NotificationSender(self.bot(), self.uow_factory).send(notification)
+        if delivered:
+            await self.notifications.mark_sent(notification_id)
+        else:
+            await self.notifications.mark_failed(notification_id, "delivery refused")
+        return delivered
+
+    async def _send_broadcast_inline(self, broadcast_id: str) -> int:
+        delivered = 0
+        while True:
+            pending = await self.notifications.pending_for_broadcast(broadcast_id, limit=100)
+            if not pending:
+                return delivered
+            for notification in pending:
+                if await self._send_notification_inline(notification.id):
+                    delivered += 1
 
     @cached_property
     def gateways(self) -> PaymentGatewayRegistry:
@@ -337,6 +410,9 @@ class Container:
             await self.redis.aclose()
         if "progress_publisher" in self.__dict__:
             self.progress_publisher.close()
+        dispatcher = self.__dict__.get("dispatcher")
+        if isinstance(dispatcher, InlineDispatcher):
+            await dispatcher.drain()
         if "engine" in self.__dict__:
             await self.engine.dispose()
 

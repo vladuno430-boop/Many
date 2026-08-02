@@ -8,6 +8,7 @@ code path is unchanged — only the DSNs differ, which is exactly what the
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -15,6 +16,14 @@ from datetime import UTC, datetime
 import pytest
 
 os.environ.setdefault("MEDIABOT_ENV_FILE", "/dev/null")
+
+# Importing aiogram installs uvloop's event-loop policy — the right choice in
+# production, but pytest-asyncio calls ``get_event_loop()`` outside a running
+# loop and uvloop refuses to create one implicitly.  Force the stdlib policy
+# for the whole suite, at import time (collection happens before fixtures).
+import aiogram  # noqa: F401  (imported for its side effect)
+
+asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
 
 from mediabot.core.config import Settings
 from mediabot.domain.enums import Language

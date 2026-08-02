@@ -28,7 +28,7 @@ COPY src ./src
 # the runtime stage installs offline and deterministically.
 RUN python -m pip install --upgrade pip build wheel \
     && python -m build --wheel --outdir /wheels \
-    && pip wheel --wheel-dir /wheels /wheels/*.whl
+    && pip wheel --wheel-dir /wheels "$(ls /wheels/*.whl)[server]"
 
 # --------------------------------------------------------------------------- #
 # Stage 2 — runtime
@@ -58,7 +58,7 @@ RUN groupadd --system --gid 1000 mediabot \
     && useradd --system --uid 1000 --gid mediabot --create-home --shell /usr/sbin/nologin mediabot
 
 COPY --from=builder /wheels /wheels
-RUN pip install --no-index --find-links=/wheels mediabot \
+RUN pip install --no-index --find-links=/wheels "mediabot[server]" \
     && rm -rf /wheels
 
 COPY --chown=mediabot:mediabot alembic.ini ./

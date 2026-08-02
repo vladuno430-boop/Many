@@ -73,7 +73,18 @@ Design principles applied throughout: **SOLID**, **Repository Pattern**,
 
 ---
 
-## Quick start
+## Two ways to run it
+
+| Mode | Topology | Use it for |
+| --- | --- | --- |
+| `distributed` (default) | PostgreSQL + Redis + Celery workers + nginx, via Docker Compose | Production on a VPS |
+| `standalone` | One process: SQLite, in-memory cache, inline download worker | A phone (Termux), a Raspberry Pi, or local development |
+
+The mode is a single setting (`APP__RUNTIME_MODE`); the application code is the
+same in both — the container swaps the infrastructure adapters behind the
+interfaces the services already depend on.
+
+## Quick start — server (Docker)
 
 ```bash
 git clone <your-repo> && cd mediabot
@@ -82,18 +93,39 @@ docker compose up -d --build
 docker compose logs -f bot
 ```
 
-The admin panel is then available at `https://<your-domain>/admin`
-and the API at `https://<your-domain>/api/v1`.
+The admin panel is then available at `https://<your-domain>/admin` and the API
+at `https://<your-domain>/api/v1`.
 
-Local development without Docker:
+## Quick start — Android (Termux)
+
+```bash
+pkg install -y git
+git clone <your-repo> && cd mediabot
+bash termux/install.sh        # installs everything and asks for the bot token
+bash termux/run.sh            # starts the bot
+```
+
+No PostgreSQL, no Redis, no Celery and no compiler required — the phone runs
+the same code as the server. Full guide: [TERMUX.md](TERMUX.md) (in Russian).
+
+## Local development without Docker
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev]"       # server profile + test tooling
 alembic upgrade head
 python -m mediabot bot        # or: api | scheduler
 celery -A mediabot.infrastructure.queue worker -l info
 ```
+
+Install profiles (`pip install -e ".[<profile>]"`):
+
+| Profile | Adds | When |
+| --- | --- | --- |
+| *(none)* | bot core only | Minimal bot |
+| `standalone` | FastAPI + admin panel | Phone / single-process host |
+| `server` | PostgreSQL, Celery, API, bcrypt, psutil | Production |
+| `dev` | `server` + pytest, mypy, ruff | Development |
 
 See [INSTALL.md](INSTALL.md) for the full setup and [DEPLOY.md](DEPLOY.md) for
 production deployment, scaling and backups.
@@ -105,6 +137,7 @@ production deployment, scaling and backups.
 | Document | Contents |
 | --- | --- |
 | [INSTALL.md](INSTALL.md) | Requirements, local setup, configuration reference |
+| [TERMUX.md](TERMUX.md) | Running the bot on an Android phone (Russian) |
 | [DEPLOY.md](DEPLOY.md) | VPS deployment, TLS, scaling, backups, upgrades, troubleshooting |
 | [API.md](API.md) | REST API reference with request/response examples |
 | [DATABASE.md](DATABASE.md) | Schema, relationships, indexes and migration workflow |
@@ -116,7 +149,7 @@ production deployment, scaling and backups.
 ## Testing and quality
 
 ```bash
-pytest                      # 170+ unit and integration tests (SQLite + fakeredis)
+pytest                      # 220+ unit and integration tests (SQLite + fakeredis)
 pytest -m unit              # fast, pure-domain tests only
 ruff check src tests        # linting
 ruff format --check src     # formatting

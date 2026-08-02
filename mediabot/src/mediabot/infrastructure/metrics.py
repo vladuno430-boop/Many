@@ -7,13 +7,17 @@ module is imported by several entry points.
 
 from __future__ import annotations
 
+import importlib
 import os
+import shutil
+import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
-import psutil
 from prometheus_client import (
     CollectorRegistry,
     Counter,
@@ -21,6 +25,15 @@ from prometheus_client import (
     Histogram,
     generate_latest,
 )
+
+#: psutil needs a C toolchain and is optional; see ``_fallback_health``.
+try:  # pragma: no cover - depends on the platform
+    psutil: Any = importlib.import_module("psutil")
+
+    _PSUTIL_AVAILABLE = True
+except ImportError:  # pragma: no cover - platform without a build toolchain
+    psutil = None
+    _PSUTIL_AVAILABLE = False
 
 REGISTRY = CollectorRegistry(auto_describe=True)
 
@@ -147,7 +160,15 @@ class SystemHealth:
 
 
 def collect_system_health(storage_path: str = "/") -> SystemHealth:
-    """Collect process and host metrics; also refreshes the gauges."""
+    """Collect process and host metrics; also refreshes the gauges.
+
+    ``psutil`` needs a C toolchain, which is not always available (Termux on
+    Android).  Without it the probe degrades to what the standard library can
+    report — disk usage and load average — instead of failing the health check.
+    """
+    if not _PSUTIL_AVAILABLE:
+        return _fallback_health(storage_path)
+
     process = psutil.Process(os.getpid())
     with process.oneshot():
         memory = process.memory_info().rss
@@ -171,5 +192,28 @@ def collect_system_health(storage_path: str = "/") -> SystemHealth:
     )
     SYSTEM_CPU.set(health.cpu_percent)
     SYSTEM_MEMORY.set(health.memory_bytes)
+    DISK_FREE.set(health.disk_free_bytes)
+    return health
+
+
+def _fallback_health(storage_path: str) -> SystemHealth:
+    """Resource snapshot built from the standard library only."""
+    usage = shutil.disk_usage(storage_path if Path(storage_path).exists() else "/")
+    used_percent = round(usage.used / usage.total * 100, 1) if usage.total else 0.0
+    try:
+        load = os.getloadavg()
+    except OSError:  # pragma: no cover - not available on every platform
+        load = (0.0, 0.0, 0.0)
+    health = SystemHealth(
+        cpu_percent=round(min(load[0] * 100 / (os.cpu_count() or 1), 100.0), 1),
+        memory_bytes=0,
+        memory_percent=0.0,
+        disk_free_bytes=usage.free,
+        disk_used_percent=used_percent,
+        open_files=0,
+        threads=threading.active_count(),
+        load_average=(load[0], load[1], load[2]),
+    )
+    SYSTEM_CPU.set(health.cpu_percent)
     DISK_FREE.set(health.disk_free_bytes)
     return health

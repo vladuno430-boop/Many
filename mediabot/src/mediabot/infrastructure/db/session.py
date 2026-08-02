@@ -13,8 +13,9 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from types import TracebackType
-from typing import Self
+from typing import Any, Self
 
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -61,7 +62,14 @@ def create_engine(settings: DatabaseSettings) -> AsyncEngine:
     because it does not support them.
     """
     if settings.async_dsn.startswith("sqlite"):
-        return create_async_engine(settings.async_dsn, echo=settings.echo, future=True)
+        engine = create_async_engine(
+            settings.async_dsn,
+            echo=settings.echo,
+            future=True,
+            connect_args={"timeout": 30},
+        )
+        _apply_sqlite_pragmas(engine)
+        return engine
     return create_async_engine(
         settings.async_dsn,
         echo=settings.echo,
@@ -71,6 +79,29 @@ def create_engine(settings: DatabaseSettings) -> AsyncEngine:
         pool_recycle=settings.pool_recycle_seconds,
         pool_pre_ping=True,
     )
+
+
+def _apply_sqlite_pragmas(engine: AsyncEngine) -> None:
+    """Configure SQLite for concurrent, referentially-correct operation.
+
+    * ``journal_mode=WAL`` lets the bot read while a download job writes, which
+      matters because the standalone mode shares one database between the
+      handlers and the inline worker.
+    * ``foreign_keys=ON`` is off by default in SQLite; without it the
+      ``ON DELETE CASCADE`` rules the schema relies on would silently not fire.
+    * ``busy_timeout`` replaces "database is locked" errors with a short wait.
+    """
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_pragmas(dbapi_connection: Any, _record: Any) -> None:
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA busy_timeout=30000")
+        finally:
+            cursor.close()
 
 
 def create_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:

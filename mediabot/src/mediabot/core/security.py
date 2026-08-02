@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import importlib
 import ipaddress
 import re
 import secrets
@@ -21,7 +22,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Final, Literal
 from urllib.parse import urlparse
 
-import bcrypt
 import jwt
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -33,6 +33,18 @@ TokenType = Literal["access", "refresh"]
 #: bcrypt cost factor. 12 ≈ 250 ms on a modern CPU — slow enough to make
 #: offline cracking expensive, fast enough for an interactive login.
 _BCRYPT_ROUNDS: Final[int] = 12
+
+#: PBKDF2 iteration count for the fallback scheme (OWASP 2023 guidance).
+_PBKDF2_ITERATIONS: Final[int] = 600_000
+
+#: bcrypt needs a Rust toolchain and is optional; see :func:`hash_password`.
+try:  # pragma: no cover - depends on the platform
+    bcrypt: Any = importlib.import_module("bcrypt")
+
+    _BCRYPT_AVAILABLE = True
+except ImportError:  # pragma: no cover - platform without a build toolchain
+    bcrypt = None
+    _BCRYPT_AVAILABLE = False
 
 #: Only these schemes may ever be fetched by the downloader.
 _ALLOWED_SCHEMES: Final[frozenset[str]] = frozenset({"http", "https"})
@@ -72,14 +84,43 @@ def _prehash(password: str) -> bytes:
 
 
 def hash_password(password: str) -> str:
-    """Hash a plaintext password with bcrypt."""
-    return bcrypt.hashpw(_prehash(password), bcrypt.gensalt(rounds=_BCRYPT_ROUNDS)).decode()
+    """Hash a plaintext password.
+
+    bcrypt is used when the wheel is installable.  On platforms without a Rust
+    toolchain (notably Termux on Android) it is unavailable, so we fall back to
+    PBKDF2-HMAC-SHA256 from the standard library — a scheme that is still
+    considered sound at 600k iterations.  The stored hash carries its scheme,
+    so both forms verify and an existing database keeps working after a move
+    between platforms.
+    """
+    if _BCRYPT_AVAILABLE:
+        hashed = bcrypt.hashpw(_prehash(password), bcrypt.gensalt(rounds=_BCRYPT_ROUNDS))
+        return str(hashed.decode())
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", _prehash(password), salt, _PBKDF2_ITERATIONS)
+    encoded_salt = base64.b64encode(salt).decode()
+    encoded_digest = base64.b64encode(digest).decode()
+    return f"$pbkdf2-sha256${_PBKDF2_ITERATIONS}${encoded_salt}${encoded_digest}"
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    """Constant-time verification of a password against its bcrypt hash."""
+    """Constant-time verification against either supported hash scheme."""
+    if not hashed:
+        return False
+    if hashed.startswith("$pbkdf2-sha256$"):
+        try:
+            _, _scheme, iterations, salt_b64, digest_b64 = hashed.split("$", 4)
+            expected = base64.b64decode(digest_b64)
+            candidate = hashlib.pbkdf2_hmac(
+                "sha256", _prehash(password), base64.b64decode(salt_b64), int(iterations)
+            )
+        except (ValueError, TypeError):
+            return False
+        return hmac.compare_digest(candidate, expected)
+    if not _BCRYPT_AVAILABLE:
+        return False
     try:
-        return bcrypt.checkpw(_prehash(password), hashed.encode())
+        return bool(bcrypt.checkpw(_prehash(password), hashed.encode()))
     except (ValueError, TypeError):
         return False
 

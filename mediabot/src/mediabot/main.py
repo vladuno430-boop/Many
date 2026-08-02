@@ -17,8 +17,6 @@ import signal
 import sys
 from typing import Any
 
-import uvicorn
-
 from mediabot.core.container import Container
 from mediabot.core.logging import LogChannel, get_logger
 
@@ -52,6 +50,8 @@ def run_bot() -> None:
 
 def run_api() -> None:
     """Console-script entry point for the REST API + admin panel."""
+    import uvicorn  # imported lazily: the bot-only install does not ship it
+
     container = Container()
     settings = container.settings
     uvicorn.run(

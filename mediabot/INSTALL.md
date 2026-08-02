@@ -12,7 +12,11 @@
 Software:
 
 * Docker 24+ and the Compose plugin — the only requirement for the container path;
-* or, for a bare-metal install: Python 3.12+, PostgreSQL 15+, Redis 7+, FFmpeg 6+.
+* or, for a bare-metal install: Python 3.11+, PostgreSQL 15+, Redis 7+, FFmpeg 6+.
+
+For the phone (`standalone` mode) the requirements are much smaller: Termux,
+Python 3.11+, FFmpeg and roughly 1.5 GB of free space — no database or broker
+server. See [TERMUX.md](TERMUX.md).
 
 ## 2. Get a bot token
 
@@ -42,15 +46,19 @@ delimiter is a double underscore):
 | Group | Key | Meaning |
 | --- | --- | --- |
 | `APP__` | `ENV` | `local` / `staging` / `production` — production refuses insecure secrets |
+| | `RUNTIME_MODE` | `distributed` (PostgreSQL + Redis + Celery) or `standalone` (one process, SQLite) |
 | | `STORAGE_DIR`, `TEMP_DIR` | Working directories, shared between bot and workers |
 | | `ARTIFACT_TTL_MINUTES` | How long finished files stay on disk |
 | `TELEGRAM__` | `BOT_TOKEN`, `BOT_USERNAME` | Credentials and the username used in referral links |
 | | `ROOT_ADMIN_IDS` | Comma-separated owner ids |
 | | `WEBHOOK_URL`, `WEBHOOK_SECRET` | Leave empty for long polling |
 | | `MAX_UPLOAD_BYTES` | 50 MiB for the cloud API, 2 GiB with a local Bot API server |
-| `DB__` | `HOST`…`PASSWORD` | PostgreSQL connection |
+| `DB__` | `BACKEND` | `postgres` or `sqlite` |
+| | `SQLITE_PATH` | Database file when the backend is SQLite |
+| | `HOST`…`PASSWORD` | PostgreSQL connection |
 | | `POOL_SIZE`, `MAX_OVERFLOW` | Connection pool sizing |
-| `REDIS__` | `HOST`, `PORT`, `DB_*` | Separate logical databases for cache, broker, results, FSM |
+| `REDIS__` | `ENABLED` | `false` swaps cache, rate limiting and FSM to in-process storage |
+| | `HOST`, `PORT`, `DB_*` | Separate logical databases for cache, broker, results, FSM |
 | `SECURITY__` | `JWT_SECRET`, `ENCRYPTION_KEY` | Token signing and secret encryption |
 | | `RATE_LIMIT_PER_MINUTE`, `FLOOD_*` | Abuse controls |
 | | `CAPTCHA_ENABLED`, `CAPTCHA_AFTER_VIOLATIONS` | Human verification |
@@ -86,7 +94,24 @@ What starts:
 | `prometheus`, `grafana` | Metrics and dashboards |
 | `flower` | Celery monitoring |
 
-## 5. Bare-metal installation
+## 5. Android (Termux)
+
+The bot runs on a phone in `standalone` mode — one process, SQLite, no Redis
+and no Celery:
+
+```bash
+pkg install -y git
+git clone <your-repo> && cd mediabot
+bash termux/install.sh
+bash termux/run.sh
+```
+
+`termux/install.sh` installs the system packages, creates the virtualenv with
+the `standalone` profile (which skips every dependency needing a compiler),
+generates `.env` and applies the migrations. `bash termux/run.sh doctor`
+diagnoses a broken environment. Full guide: [TERMUX.md](TERMUX.md).
+
+## 6. Bare-metal installation
 
 ```bash
 sudo apt update
@@ -110,7 +135,7 @@ Run the processes under systemd (unit files are listed in `DEPLOY.md`):
 /opt/mediabot/venv/bin/celery -A mediabot.infrastructure.queue beat -l info
 ```
 
-## 6. Verify
+## 7. Verify
 
 ```bash
 curl -fsS http://localhost:8000/api/v1/health | jq
@@ -122,7 +147,7 @@ Then open Telegram, send `/start` to the bot and paste a YouTube link. Sign in
 to the panel at `http://localhost:8000/admin` with `API__ADMIN_USERNAME` /
 `API__ADMIN_PASSWORD`.
 
-## 7. Optional: raise the upload limit
+## 8. Optional: raise the upload limit
 
 The Telegram cloud API caps bot uploads at 50 MiB. Running a
 [local Bot API server](https://github.com/tdlib/telegram-bot-api) raises it to
@@ -133,7 +158,7 @@ TELEGRAM__API_SERVER=http://telegram-bot-api:8081
 TELEGRAM__MAX_UPLOAD_BYTES=2147483648
 ```
 
-## 8. Common problems
+## 9. Common problems
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |

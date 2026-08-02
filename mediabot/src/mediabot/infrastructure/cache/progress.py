@@ -57,7 +57,8 @@ class ProgressPublisher:
             return
 
     def close(self) -> None:
+        """Release the Redis connection held by this publisher."""
         try:
-            self._client.close()
+            self._client.close()  # type: ignore[no-untyped-call]
         except sync_redis.RedisError:  # pragma: no cover - shutdown path
             return

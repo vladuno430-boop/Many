@@ -38,7 +38,6 @@ from mediabot.domain.value_objects import (
     MediaInfo,
     QueuePosition,
 )
-from mediabot.infrastructure.cache.progress import ProgressPublisher
 from mediabot.infrastructure.cache.redis_cache import CacheService
 from mediabot.infrastructure.db.models.download import Download
 from mediabot.infrastructure.db.session import UnitOfWork, UnitOfWorkFactory
@@ -54,6 +53,23 @@ from mediabot.infrastructure.queue.dispatcher import TaskDispatcher
 from mediabot.infrastructure.storage import StorageService
 
 log = get_logger(LogChannel.DOWNLOAD, component="download_service")
+
+
+@runtime_checkable
+class ProgressSink(Protocol):
+    """Anything the downloader can publish progress snapshots to.
+
+    Distributed mode writes to Redis, standalone keeps them in memory; the
+    service only needs this one method.
+    """
+
+    def publish(self, download_id: int, progress: DownloadProgress) -> None:
+        """Record the latest progress of a job."""
+        ...
+
+    def close(self) -> None:
+        """Release whatever resources the sink holds."""
+        ...
 
 
 @runtime_checkable
@@ -100,7 +116,7 @@ class DownloadService:
         queue_service: QueueService,
         format_selector: FormatSelector,
         delivery: MediaDelivery | None = None,
-        progress_publisher: ProgressPublisher | None = None,
+        progress_publisher: ProgressSink | None = None,
     ) -> None:
         self._uow_factory = uow_factory
         self._adapter = adapter

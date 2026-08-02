@@ -4,6 +4,42 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] — 2026-08-02
+
+### Added
+- **Standalone runtime mode** (`APP__RUNTIME_MODE=standalone`): the whole bot
+  runs in a single process with SQLite, an in-process cache and an inline
+  download worker — no PostgreSQL, Redis or Celery required.
+- **Termux/Android support**: `termux/install.sh` (one-command setup),
+  `termux/run.sh` (bot, API, migrations, diagnostics), `termux/doctor.py`
+  (environment check), a Termux:Boot autostart script and the `TERMUX.md`
+  guide in Russian.
+- SQLite backend for the main database (`DB__BACKEND=sqlite`) with WAL,
+  enforced foreign keys and a busy timeout.
+- `REDIS__ENABLED=false` swaps the cache, the rate limiter, the locks and the
+  FSM storage to in-process implementations that speak the same interfaces.
+- Install profiles: `standalone`, `server`, `postgres`, `worker`, `api`,
+  `security`, `metrics` — so a platform without a compiler installs only what
+  it can build.
+- PBKDF2-HMAC-SHA256 fallback for admin password hashing when bcrypt (which
+  needs Rust) is unavailable; existing bcrypt hashes keep verifying.
+- Migration regression tests that run Alembic against SQLite and insert rows.
+
+### Fixed
+- The initial migration created `BIGINT` surrogate keys, which SQLite does not
+  auto-increment, so every insert failed under the standalone deployment. The
+  keys are now rendered with a dialect variant (`INTEGER` on SQLite,
+  `BIGSERIAL` on PostgreSQL).
+- `aiohttp` and `pydantic` were pinned above the versions aiogram 3.15 allows,
+  which made a clean `pip install` impossible.
+
+### Changed
+- Celery and uvicorn are no longer imported on the bot's start-up path, so the
+  bot runs without them installed.
+- Minimum Python lowered to 3.11 (Docker and CI still use 3.12) so the bot
+  installs on Termux.
+- Prometheus process metrics degrade gracefully when `psutil` is missing.
+
 ## [1.0.0] — 2026-07-31
 
 First production release.

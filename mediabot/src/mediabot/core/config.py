@@ -29,6 +29,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["local", "staging", "production"]
 
+#: How the application is deployed.
+#:
+#: ``distributed`` — the production topology: PostgreSQL, Redis and Celery
+#: workers in separate containers/processes (see ``docker-compose.yml``).
+#: ``standalone`` — everything in one process, with SQLite, an in-memory cache
+#: and an inline download worker.  This is what makes the bot runnable on a
+#: phone under Termux, or on any host where running four services is overkill.
+RuntimeMode = Literal["distributed", "standalone"]
+
 
 def _split_csv(raw: str | list[str] | None) -> list[str]:
     """Parse a comma separated environment value into a clean list."""
@@ -43,6 +52,7 @@ class AppSettings(BaseModel):
     """Generic runtime settings that do not belong to a specific subsystem."""
 
     env: Environment = "local"
+    runtime_mode: RuntimeMode = "distributed"
     debug: bool = False
     name: str = "MediaBot"
     timezone: str = "UTC"
@@ -53,6 +63,11 @@ class AppSettings(BaseModel):
     @property
     def is_production(self) -> bool:
         return self.env == "production"
+
+    @property
+    def is_standalone(self) -> bool:
+        """True when the bot must run without Redis, Celery or PostgreSQL."""
+        return self.runtime_mode == "standalone"
 
     def ensure_directories(self) -> None:
         """Create the working directories if they are missing.
@@ -95,8 +110,11 @@ class TelegramSettings(BaseModel):
 
 
 class DatabaseSettings(BaseModel):
-    """PostgreSQL connection settings."""
+    """Database connection settings (PostgreSQL, or SQLite for standalone)."""
 
+    backend: Literal["postgres", "sqlite"] = "postgres"
+    #: Only used when ``backend == "sqlite"``.
+    sqlite_path: Path = Path("mediabot.db")
     host: str = "localhost"
     port: int = 5432
     name: str = "mediabot"
@@ -110,9 +128,15 @@ class DatabaseSettings(BaseModel):
     url_override: str = ""
 
     @property
+    def is_sqlite(self) -> bool:
+        return self.backend == "sqlite" or self.url_override.startswith("sqlite")
+
+    @property
     def async_dsn(self) -> str:
         if self.url_override:
             return self.url_override
+        if self.backend == "sqlite":
+            return f"sqlite+aiosqlite:///{self.sqlite_path}"
         return (
             f"postgresql+asyncpg://{self.user}:{self.password.get_secret_value()}"
             f"@{self.host}:{self.port}/{self.name}"
@@ -123,6 +147,8 @@ class DatabaseSettings(BaseModel):
         """Synchronous DSN — required by Alembic and the Celery workers."""
         if self.url_override:
             return self.url_override.replace("+asyncpg", "").replace("+aiosqlite", "")
+        if self.backend == "sqlite":
+            return f"sqlite:///{self.sqlite_path}"
         return (
             f"postgresql+psycopg2://{self.user}:{self.password.get_secret_value()}"
             f"@{self.host}:{self.port}/{self.name}"
@@ -130,8 +156,13 @@ class DatabaseSettings(BaseModel):
 
 
 class RedisSettings(BaseModel):
-    """Redis connection settings; logical databases are separated by concern."""
+    """Redis connection settings; logical databases are separated by concern.
 
+    ``enabled=False`` swaps every Redis-backed component for an in-process
+    implementation, which is what the standalone (Termux) mode uses.
+    """
+
+    enabled: bool = True
     host: str = "localhost"
     port: int = 6379
     password: SecretStr = SecretStr("")

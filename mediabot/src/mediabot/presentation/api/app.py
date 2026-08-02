@@ -106,10 +106,8 @@ def create_app(container: Container | None = None) -> FastAPI:
     )
     app.state.container = app_container
 
-    # Starlette types `add_middleware` with a positional-only protocol, which
-    # does not model our keyword argument; the call itself is correct.
     app.add_middleware(
-        SecurityHeadersMiddleware,  # type: ignore[arg-type]
+        SecurityHeadersMiddleware,
         production=settings.app.is_production,
     )
     app.add_middleware(MetricsMiddleware)

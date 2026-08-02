@@ -4,65 +4,104 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mediabot"
-version = "1.0.0"
+version = "1.1.0"
 description = "Production-ready Telegram bot for downloading multimedia from 1000+ platforms"
 readme = "README.md"
-requires-python = ">=3.12"
+# 3.12 is what the Docker image and CI use; 3.11 is supported so the bot
+# also installs on Termux/Android, where the Python version lags behind.
+requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [{ name = "MediaBot Team" }]
 keywords = ["telegram", "bot", "aiogram", "yt-dlp", "downloader"]
 
+# Core runtime: everything the Telegram bot itself needs.  Each of these is
+# either pure Python or ships aarch64 wheels, so `pip install mediabot` works
+# on a phone under Termux as well as on a server.
 dependencies = [
     # --- Telegram ---
     "aiogram==3.15.0",
-    # --- Web / API ---
-    "fastapi==0.115.6",
-    "uvicorn[standard]==0.34.0",
-    "jinja2==3.1.5",
-    "python-multipart==0.0.20",
-    "aiohttp==3.11.11",
+    # Upper bound comes from aiogram 3.15, which pins aiohttp<3.11.
+    "aiohttp==3.10.11",
     # --- Database ---
     "sqlalchemy[asyncio]==2.0.36",
     "alembic==1.14.0",
-    "asyncpg==0.30.0",
-    "psycopg2-binary==2.9.10",
-    # --- Cache / queue ---
+    "aiosqlite==0.20.0",
+    # --- Cache / broker client (pure Python) ---
     "redis==5.2.1",
-    "celery[redis]==5.4.0",
-    "flower==2.0.1",
-    # --- Scheduling ---
-    "apscheduler==3.11.0",
     # --- Config / validation ---
-    "pydantic==2.10.4",
-    "pydantic-settings==2.7.0",
-    "email-validator==2.2.0",
+    # Upper bound comes from aiogram 3.15, which pins pydantic<2.10.
+    "pydantic==2.9.2",
+    "pydantic-settings==2.6.1",
     # --- Security ---
-    "pyjwt[crypto]==2.10.1",
-    "bcrypt==4.2.1",
+    "pyjwt==2.10.1",
     "cryptography==44.0.0",
-    "python-magic==0.4.27",
-    # --- Downloading / media ---
+    # --- Downloading ---
     "yt-dlp==2024.12.23",
     # --- Observability ---
     "loguru==0.7.3",
     "prometheus-client==0.21.1",
-    "psutil==6.1.1",
+    # --- Scheduling ---
+    "apscheduler==3.11.0",
 ]
 
 [project.optional-dependencies]
+# PostgreSQL drivers. Both need a C toolchain, so they are not installed on
+# platforms that run the standalone (SQLite) mode.
+postgres = [
+    "asyncpg==0.30.0",
+    "psycopg2-binary==2.9.10",
+]
+# Distributed worker pool.
+worker = [
+    "celery[redis]==5.4.0",
+    "flower==2.0.1",
+]
+# REST API and the admin web panel. Plain uvicorn (not uvicorn[standard]) so
+# the panel also installs on platforms without a C toolchain.
+api = [
+    "fastapi==0.115.6",
+    "uvicorn==0.34.0",
+    "jinja2==3.1.5",
+    "python-multipart==0.0.20",
+    "email-validator==2.2.0",
+]
+# bcrypt requires Rust; without it password hashing falls back to PBKDF2.
+security = [
+    "bcrypt==4.2.1",
+]
+# Detailed process metrics and magic-byte MIME detection (need a compiler).
+metrics = [
+    "psutil==6.1.1",
+    "python-magic==0.4.27",
+]
+# Everything a server deployment uses.
+server = [
+    "mediabot[postgres]",
+    "mediabot[worker]",
+    "mediabot[api]",
+    "mediabot[security]",
+    "mediabot[metrics]",
+    # uvloop/httptools speed the API up on a server that can compile them.
+    "uvicorn[standard]==0.34.0",
+]
+# Bot-only install for a phone: no PostgreSQL, no Celery, no compiler.
+standalone = [
+    "mediabot[api]",
+]
 dev = [
     "pytest==8.3.4",
     "pytest-asyncio==0.25.0",
     "pytest-cov==6.0.0",
     "pytest-mock==3.14.0",
     "httpx==0.28.1",
-    "aiosqlite==0.20.0",
     "fakeredis==2.26.2",
+    "mediabot[server]",
     "mypy==1.14.1",
-    "ruff==0.8.6",
+    "ruff==0.16.1",
 ]
 
 [project.scripts]
+mediabot = "mediabot.main:main"
 mediabot-bot = "mediabot.main:run_bot"
 mediabot-api = "mediabot.main:run_api"
 mediabot-scheduler = "mediabot.main:run_scheduler"
@@ -79,7 +118,7 @@ mediabot = ["presentation/web/templates/*.html", "presentation/web/static/*", "p
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py311"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
@@ -93,11 +132,13 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+# conftest must reset the event-loop policy before the framework imports.
 "tests/*" = ["S105", "S106", "S311"]
+"tests/conftest.py" = ["E402", "S105", "S106", "S311"]
 "migrations/*" = ["N999", "E501"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.11"
 strict = true
 plugins = ["pydantic.mypy"]
 ignore_missing_imports = true
@@ -134,6 +175,8 @@ omit = ["*/migrations/*", "*/__main__.py"]
 #    repository typing under mypy; the classic `Generic[T]` form is kept.
 [tool.ruff.lint.extend-per-file-ignores]
 "src/mediabot/infrastructure/downloader/*" = ["ASYNC109", "ASYNC240"]
+# `drain(timeout=...)` mirrors asyncio.wait's own signature.
+"src/mediabot/infrastructure/queue/inline.py" = ["ASYNC109"]
 "src/mediabot/infrastructure/notifications/*" = ["ASYNC240"]
 "src/mediabot/infrastructure/db/repositories/base.py" = ["UP046"]
 "src/mediabot/infrastructure/queue/tasks.py" = ["UP047"]

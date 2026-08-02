@@ -15,8 +15,13 @@ env:
 
 jobs:
   quality:
-    name: Lint, types and tests
+    name: Lint, types and tests (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 3.12 is what Docker runs; 3.11 is the floor that keeps Termux working.
+        python-version: ["3.11", "3.12"]
     defaults:
       run:
         working-directory: mediabot
@@ -26,7 +31,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: pip
 
       - name: Install system dependencies
@@ -63,6 +68,51 @@ jobs:
           command.downgrade(config, "base")
           print("migration round-trip OK")
           PY
+
+  standalone:
+    name: Standalone profile (the Termux path)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mediabot
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install the standalone profile only
+        # No PostgreSQL driver, no Celery, no bcrypt, no psutil - exactly what a
+        # phone gets. If the bot needs any of them at import time, this fails.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[standalone]"
+
+      - name: Boot the bot in standalone mode
+        run: |
+          mkdir -p /tmp/mediabot/storage /tmp/mediabot/tmp /tmp/mediabot/logs
+          cat > .env <<'ENVFILE'
+          APP__RUNTIME_MODE=standalone
+          APP__ENV=local
+          APP__STORAGE_DIR=/tmp/mediabot/storage
+          APP__TEMP_DIR=/tmp/mediabot/tmp
+          TELEGRAM__BOT_TOKEN=123456:CI-TEST-TOKEN
+          TELEGRAM__BOT_USERNAME=ci_bot
+          TELEGRAM__ROOT_ADMIN_IDS=1
+          DB__BACKEND=sqlite
+          DB__SQLITE_PATH=/tmp/mediabot/mediabot.db
+          REDIS__ENABLED=false
+          SECURITY__JWT_SECRET=ci-secret-key-that-is-long-enough-for-checks
+          API__ADMIN_PASSWORD=ci-admin-password
+          OBSERVABILITY__LOG_DIR=/tmp/mediabot/logs
+          ENVFILE
+          alembic upgrade head
+          python termux/ci_check.py
 
   docker:
     name: Docker image builds

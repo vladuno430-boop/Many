@@ -285,7 +285,7 @@ async def on_refresh(
     container: Container,
 ) -> None:
     """Refresh the progress message from the Redis snapshot."""
-    payload = await container.cache.get_progress(callback_data.download_id)
+    payload = await container.progress_snapshot(callback_data.download_id)
     if not payload:
         await callback.answer(t("common.loading"))
         return

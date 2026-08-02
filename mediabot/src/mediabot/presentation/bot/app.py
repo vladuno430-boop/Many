@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from aiogram import Bot, Dispatcher
+from aiogram.fsm.storage.base import BaseStorage
+from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.types import BotCommand, BotCommandScopeAllPrivateChats
 
@@ -51,10 +55,19 @@ _COMMAND_KEYS: tuple[tuple[str, str], ...] = (
 
 
 def create_dispatcher(container: Container) -> Dispatcher:
-    """Build the dispatcher with middlewares and routers in the right order."""
-    storage = RedisStorage(
-        redis=create_redis(container.settings.redis, container.settings.redis.db_fsm)
-    )
+    """Build the dispatcher with middlewares and routers in the right order.
+
+    The FSM storage follows the runtime mode: Redis when it is available (so
+    conversations survive a restart and can be shared between replicas), an
+    in-memory store in standalone mode, where there is exactly one process.
+    """
+    storage: BaseStorage
+    if container.settings.redis.enabled and not container.settings.app.is_standalone:
+        storage = RedisStorage(
+            redis=create_redis(container.settings.redis, container.settings.redis.db_fsm)
+        )
+    else:
+        storage = MemoryStorage()
     dispatcher = Dispatcher(storage=storage)
 
     for middleware in (
@@ -131,8 +144,35 @@ async def on_shutdown(container: Container, bot: Bot) -> None:
     await container.shutdown()
 
 
+async def _maintenance_loop(container: Container, stop: asyncio.Event) -> None:
+    """Periodic housekeeping for the standalone mode.
+
+    In the distributed topology Celery beat and the scheduler process own these
+    jobs.  With a single process there is nobody else to run them, so the bot
+    does it on a slow timer: expired subscriptions, stale jobs, artefact
+    clean-up and the statistics roll-up.
+    """
+    interval = 300.0
+    while not stop.is_set():
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=interval)
+            return
+        except TimeoutError:
+            pass
+        for name, job in (
+            ("subscriptions", container.subscriptions.expire_due),
+            ("stale-jobs", container.downloads.reclaim_stale),
+            ("artifacts", container.downloads.cleanup_artifacts),
+            ("statistics", container.statistics.aggregate_day),
+        ):
+            try:
+                await job()
+            except Exception as exc:  # pragma: no cover - job isolation
+                log.warning("maintenance job {} failed: {}", name, exc)
+
+
 async def run_polling(container: Container) -> None:
-    """Entry point for long polling (development and small deployments)."""
+    """Entry point for long polling (development, standalone and small setups)."""
     bot = container.bot()
     dispatcher = create_dispatcher(container)
 
@@ -143,10 +183,18 @@ async def run_polling(container: Container) -> None:
     container.set_delivery(TelegramDelivery(bot, container.settings, container.uow_factory))
 
     await on_startup(container, bot)
+    stop = asyncio.Event()
+    maintenance: asyncio.Task[None] | None = None
+    if container.settings.app.is_standalone:
+        maintenance = asyncio.create_task(_maintenance_loop(container, stop))
+        log.info("standalone mode: maintenance runs inside the bot process")
     try:
         await dispatcher.start_polling(
             bot,
             allowed_updates=dispatcher.resolve_used_update_types(),
         )
     finally:
+        stop.set()
+        if maintenance is not None:
+            maintenance.cancel()
         await on_shutdown(container, bot)
